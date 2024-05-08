@@ -5,11 +5,18 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import com.example.okhttp3weather.data.WeatherData;
+import com.google.gson.Gson;
+
 import java.io.IOException;
+import java.util.Date;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -56,16 +63,56 @@ public class MainActivity extends AppCompatActivity {
             }
         });
     }
+    Handler handler = new Handler(){
+        @Override
+        public void handleMessage(@NonNull Message msg) {
+            super.handleMessage(msg);
+            String jsonStr = (String) msg.obj;
+            if (msg.arg1 != -1){
+                Gson gson = new Gson();
+                WeatherData weatherData = gson.fromJson(jsonStr, WeatherData.class);
+                showInfo(weatherData);
+            }else{
+                descrText.setText(jsonStr);
+            }
+        }
+    };
+    void showInfo(WeatherData weatherData){
+        String info = Double.toString(weatherData.main.temp);
+        tempText.setText(info);
+        info = Double.toString(weatherData.main.feelsLike);
+        tempLikeText.setText(info);
+        info = Integer.toString(weatherData.main.humidity);
+        humidityText.setText(info);
+        descrText.setText(weatherData.weather[0].description);
+        info = Double.toString(weatherData.wind.speed);
+        speedText.setText(info);
+        Date date = new Date();
+        date.setTime(weatherData.sys.sunrise);
+        sunriseText.setText(date.toString());
+    }
     class CallRequest implements Callback{
         String result = "";
         @Override
         public void onFailure(@NonNull Call call, @NonNull IOException e) {
             result = "Ошибка соединения";
+            Log.i("Weather failure", result);
         }
 
         @Override
         public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-            
+            if (response.isSuccessful() && response.code() == 200){
+                String jsonStr = response.body().string();
+                Message message = new Message();
+                message.obj = jsonStr;
+                handler.sendMessage(message);
+            }else{
+                String res = "Произошла ошибка: " + response.code();
+                Message message = new Message();
+                message.obj = res;
+                message.arg1 = -1;
+                handler.sendMessage(message);
+            }
         }
     }
 }
